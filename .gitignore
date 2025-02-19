@@ -1,0 +1,12 @@
+.DS_Store
+.localized
+
+.hugo_build.lock
+
+public/
+*.swp
+*.DS_Store
+.idea/
+.vscode/
+*.tmp
+*.log
