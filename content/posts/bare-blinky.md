@@ -41,10 +41,17 @@ The following block diagram shows the system clock tree:
 
 ![CH32V003 clock tree block diagram](/img/ch32v003-clock-tree.png)
 
-A few important notes about the clock tree:
-- SYSCLK output is multiplexed between HSI, HSE, HSI\*2 and HSE\*2
-- AHB clock source can be prescaled (divisible by: 1, 2, ..., 256)
-- Core System Timer can be divided by 8, after it has been prescaled
+A few important notes about the clock tree that we should care about:
+- HSE and HSI can multiplied by 2 through a PLL, so SYSCLK output is multiplexed between HSI, HSE, HSI\*2 and HSE\*2
+- HCLK is prescaled (divisible by: 1, 2, ..., 256) from SYSCLK
+- HCLK is used for HB peripherals (GPIO)
+- HCLK is used for Core System Timer and can be divided by 8 (useful for longer timer delays)
+
+Because HCLK depends on SYSCLK, let's configure SYSCLK first. We'll configure it at 48MHz; the maximum supported frequency. Because we don't have an external crystal (HSE), we'll use the internal oscillator (HSI) which runs at 24MHz and feed it to the PLL to multiply it by 2 (24MHz * 2 = 48MHz). So first of all, we have to enable both HSI and PLL.
+
+Before enabling HSI*2, by selecting PLL as clock source, we should configure everything that depends on SYSCLK so that when we do enable it everything else is ready.
+
+---
 
 Before doing anything else the SYSCLK must be configured, so let's configure it at 48MHz, as it is the maximum supported frequency. The steps needed to do this are:
 
