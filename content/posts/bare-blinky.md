@@ -47,23 +47,19 @@ A few important notes about the clock tree that we should care about:
 - HCLK is used for HB peripherals (GPIO)
 - HCLK is used for Core System Timer and can be divided by 8 (useful for longer timer delays)
 
-Because HCLK depends on SYSCLK, let's configure SYSCLK first. We'll configure it at 48MHz; the maximum supported frequency. Because we don't have an external crystal (HSE), we'll use the internal oscillator (HSI) which runs at 24MHz and feed it to the PLL to multiply it by 2 (24MHz * 2 = 48MHz). So first of all, we have to enable both HSI and PLL.
+Because HCLK depends on SYSCLK, let's configure SYSCLK first. We'll configure it at 48MHz; the maximum supported frequency. Because we don't have an external crystal (HSE), we'll use the internal oscillator (HSI) which runs at 24MHz and feed it to the PLL to multiply it by 2 (24MHz * 2 = 48MHz). So first of all, we have to enable both HSI and PLL and configure HSI as PLL source. Then, because we'll need to kwow when PLL is ready before we can actually select it as a clock source, we should clear RCC interrupt flags. These flags indicate the state of different clock devices and are used to detect when different events happen, and PLL being ready is one of them. Because these flags don't auto-reset we have to reset them so that we can detect when PLL is ready. The next obvious step to finish SYSCLK configuration would be to select HSI+PLL (HSI*2) by selecting PLL as clock source, but before we do that we should configure everything that depends on SYSCLK so that when we do enable it everything else is setup and ready to go. For our use case there are two things to configure: HCLK prescaler configuration (we want to turn it off so that HCLK = SYSCLK = 48MHz) and flash with a 1 cycle latency (this is recommended in the reference manual when 24MHz <= SYSCLK <= 48MHz). The last thing to do is to wait for the PLL to be ready, select it as SYSCLK source and wait until it is actually used as SYSCLK before executing the rest of the program.
 
-Before enabling HSI*2, by selecting PLL as clock source, we should configure everything that depends on SYSCLK so that when we do enable it everything else is ready.
+Because some of the steps detailed above can be perfomed at the same time we can optimise the list of steps to look like this:
 
----
+1. [Enable HSI and PLL](#enable-hsi-and-pll)
+2. [Select HSI as PLL source and turn off prescaler](#select-hsi-as-pll-source-and-turn-off-prescaler)
+3. [Clear RCC interrupt flags](#clear-rcc-interrupt-flags)
+4. [Configure flash to use 1 cycle latency](#configure-flash-to-use-1-cycle-latency)
+5. [Wait until PLL is ready](#wait-until-pll-is-ready)
+6. [Select PLL as SYSCLK](#select-pll-as-sysclk)
+7. [Wait until PLL is used as SYSCLK](#wait-until-pll-is-used-as-sysclk)
 
-Before doing anything else the SYSCLK must be configured, so let's configure it at 48MHz, as it is the maximum supported frequency. The steps needed to do this are:
-
-1. Enable HSI and PLL
-2. Turn off prescaler (do not divide AHB clock) and select HSI as PLL source
-3. Configure flash to use 1 cycle latency (recommended when 24MHz <= SYSCLK <= 48MHz)
-4. Clear RCC interrupt flags
-5. Wait until PLL is ready
-6. Select PLL as system clock
-7. Wait until PLL is used as system clock
-
-All of this can be done through the RCC (Reset and Clock Control) registers, with base address `0x40021000`:
+All of these steps are performed using the RCC (Reset and Clock Control) registers, with base address `0x40021000`:
 
 ![CH32V003 RCC registers](/img/ch32v003-rcc-registers.png)
 
@@ -88,6 +84,7 @@ More specifically, we'll need the following registers:
 **Note**: the description of each field for all registers is left out for brevity. More information can be found in the [reference manual](https://www.wch-ic.com/downloads/CH32V003RM_PDF.html).
 
 ### Enable HSI and PLL
+
 HSI and PLL are enabled through `R32_RCC_CTLR` field `HSION` (bit 0) and field `PLLON` (bit 24). For both fields, writing a 1 will enable the device and writing a 0 will disable it. So let's write some RISC-V assembly code that enables them both:
 
 ```riscv
@@ -124,7 +121,7 @@ main:
 
 **Note:** a few lines of code have been added, like constant definitions, which will be needed later.
 
-### Turn off prescaler and select HSI as PLL source
+### Select HSI as PLL source and turn off prescaler
 
 The prescaler is turned off by writing 0 to `R32_RCC_CFGR0` field `HPRE` (bits 4-7) and HSI is selected as PLL source by writing 0 to field `PLLSRC` (bit 16):
 
@@ -135,19 +132,6 @@ The prescaler is turned off by writing 0 to `R32_RCC_CFGR0` field `HPRE` (bits 4
         #     RCC_CFGR0 = 0
         li t0, 0x00000000
         sw t0, 4(a0)
-```
-
-### Configure flash to use 1 cycle latency
-
-Flash latency is configured through `R32_FLASH_ACTLR` field `LATENCY` (bits 0-1); writing a 1 will select a 1 cycle latency:
-
-```riscv
-        # configure flash to recommended settings for 48MHz clock
-        # LATENCY (bits 0-1) = 1
-        #     FLASH_ACTLR = 1 << 0
-        #     FLASH_ACTLR = 1
-        li t0, 0x00000001
-        sw t0, 0(a1)
 ```
 
 ### Clear RCC interrupt flags
@@ -192,6 +176,19 @@ For our use case, we actually only *need* to clear certain interrupt flags in or
         sw t0, 8(a0)
 ```
 
+### Configure flash to use 1 cycle latency
+
+Flash latency is configured through `R32_FLASH_ACTLR` field `LATENCY` (bits 0-1); writing a 1 will select a 1 cycle latency:
+
+```riscv
+        # configure flash to recommended settings for 48MHz clock
+        # LATENCY (bits 0-1) = 1
+        #     FLASH_ACTLR = 1 << 0
+        #     FLASH_ACTLR = 1
+        li t0, 0x00000001
+        sw t0, 0(a1)
+```
+
 ### Wait until PLL is ready
 
 When PLL is ready `RCC_CTLR` field `PLLRDY` (bit 25) will be set to 1. So we could write a loop that iterates until `PLLRDY` is set:
@@ -205,9 +202,9 @@ When PLL is ready `RCC_CTLR` field `PLLRDY` (bit 25) will be set to 1. So we cou
         beq t0, zero, .L_pll_rdy_wait
 ```
 
-### Select PLL as system clock
+### Select PLL as SYSCLK
 
-Once PLL is ready we can select it as system clock source, which is done by setting `R32_RCC_CFGR0` field `SW` (bits 0-1) to 2. Because we don't want to modify the rest of the fields we could read the register value, set the first two bits to 0 with a bitwise and mask (which would be `0b11 << 0 = 0x00000003`) and then bitwise or the result with 2:
+Once PLL is ready we can select it as SYSCLK source, which is done by setting `R32_RCC_CFGR0` field `SW` (bits 0-1) to 2. Because we don't want to modify the rest of the fields we could read the register value, set the first two bits to 0 with a bitwise and mask (which would be `0b11 << 0 = 0x00000003`) and then bitwise or the result with 2:
 
 ```riscv
         # RCC_CFGR0 = RCC_CFGR0 & ~(0b11) | 0b10
@@ -219,7 +216,7 @@ Once PLL is ready we can select it as system clock source, which is done by sett
         sw t0, 4(a0)
 ```
 
-### Wait until PLL is used as system clock
+### Wait until PLL is used as SYSCLK
 
 When PLL is selected as clock source `R32_RCC_CFGR0` field `SWS` (bits 2-3) will be set to 2 (the same value we set field `SW` to in the previous step). We could write a loop that iterates until `SWS` is set to 2:
 
