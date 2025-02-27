@@ -3,6 +3,7 @@ title: "Bare blinky"
 date: 2025-01-19
 draft: true
 showToc: true
+math: katex
 ---
 
 I have messed with electronics for quite some time now, pretty much ever since I started programming. Actually, I learned basic C programming by playing in Arduino IDE. So I have a decent understanding of how to write basic programs that run on Arduino-like compatible microcontrollers; but I have a mediocre understanding of what is actually going on when I use the Arduino or, even, the chip's framework. So I want to go down the software stack and understand exactly what really happens under the hood. I think making an LED blink, an extremely basic task, in assembly and without any libraries/frameworks is a decent starting point.
@@ -394,7 +395,9 @@ Now all that remains is to actually make the LED blink by setting GPIO D4 high a
 
 Because we want to have the LED on and off for a certain amount of time we have to convert that amount to number of system ticks in order to use the `delay_systick` function. For a 48MHz system clock source we could calculate the milisecond to tick factor the following way:
 
-48000000cycle/s * 1tick/8cycle * 1s/1000ms = 6000 ticks/ms
+$$
+\frac{48000000cycle}{1s} \cdot \frac{1tick}{8cycle} \cdot \frac{1s}{1000ms} = 6000 ticks/ms
+$$
 
 Finally, we can write an infinite loop to blink the LED:
 
