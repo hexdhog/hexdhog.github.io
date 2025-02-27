@@ -2,3 +2,12 @@ baseURL = "https://hexdhog.com/"
 languageCode = "en-us"
 title = "hexdhog"
 theme = "papermod"
+
+[markup]
+[markup.highlight]
+codeFences = true
+style = "base16-snazzy"
+# style = "gruvbox"
+# style = "monokai"
+# style = "onedark"
+# style = "paraiso-dark"

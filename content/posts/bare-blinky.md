@@ -91,7 +91,7 @@ More specifically, we'll need the following registers:
 
 HSI and PLL are enabled through `R32_RCC_CTLR` field `HSION` (bit 0) and field `PLLON` (bit 24). For both fields, writing a 1 will enable the device and writing a 0 will disable it. So let's write some RISC-V assembly code that enables them both:
 
-```riscv
+```asm
 .equ rcc_base, 0x40021000
 .equ flash_r_base, 0x40022000
 .equ gpio_pd_base, 0x40011400
@@ -129,7 +129,7 @@ main:
 
 The prescaler is turned off by writing 0 to `R32_RCC_CFGR0` field `HPRE` (bits 4-7) and HSI is selected as PLL source by writing 0 to field `PLLSRC` (bit 16):
 
-```riscv
+```asm
         # HPRE = 0: prescaler off; do not divide SYSCLK
         # PLLSRC = 0: HSI (instead of HSE) for PLL input
         #     RCC_CFGR0 = 0 << 4 | 0 << 16
@@ -163,7 +163,7 @@ The first 5 table entries are interrupt flags, indicated by the trailing `F`, an
 
 For our use case, we actually only *need* to clear certain interrupt flags in order to know when certain events happend (e.g. we'll need to know when PLL is ready after we have enabled it), but clearing all of the interrupt flags is a good idea when changing the clock tree configuration anyway, so we'll do that. Also, we could write our program in a way that doesn't actively wait for the peripherals to be ready by utilizing interrupts but that would complicate our code, so we'll disable interrupts too:
 
-```riscv
+```asm
         # CSSC     (bit 23) = 1 -> clear CSSF (clock security system interrupt flag bit)
         # PLLRDYC  (bit 20) = 1 -> clear PLLRDYF (PLL-ready interrupt flag bit)
         # HSERDYC  (bit 19) = 1 -> clear HSERDYF (HSE oscillator ready interrupt flag bit)
@@ -184,7 +184,7 @@ For our use case, we actually only *need* to clear certain interrupt flags in or
 
 Flash latency is configured through `R32_FLASH_ACTLR` field `LATENCY` (bits 0-1); writing a 1 will select a 1 cycle latency:
 
-```riscv
+```asm
         # configure flash to recommended settings for 48MHz clock
         # LATENCY (bits 0-1) = 1
         #     FLASH_ACTLR = 1 << 0
@@ -197,7 +197,7 @@ Flash latency is configured through `R32_FLASH_ACTLR` field `LATENCY` (bits 0-1)
 
 When PLL is ready `RCC_CTLR` field `PLLRDY` (bit 25) will be set to 1. So we could write a loop that iterates until `PLLRDY` is set:
 
-```riscv
+```asm
         # wait until PLL is ready
         li t1, 0x02000000 # PLL_RDY mask = 1 << 25
 .L_pll_rdy_wait:
@@ -210,7 +210,7 @@ When PLL is ready `RCC_CTLR` field `PLLRDY` (bit 25) will be set to 1. So we cou
 
 Once PLL is ready we can select it as SYSCLK source, which is done by setting `R32_RCC_CFGR0` field `SW` (bits 0-1) to 2. Because we don't want to modify the rest of the fields we could read the register value, set the first two bits to 0 with a bitwise AND mask (which would be `0b11 << 0 = 0x00000003`) and then bitwise OR the result with 2:
 
-```riscv
+```asm
         # RCC_CFGR0 = RCC_CFGR0 & ~(0b11) | 0b10
         # RCC_CFGR0 = RCC_CFGR0 & ~(0x00000003) | 0x00000002
         # RCC_CFGR0 = RCC_CFGR0 & 0xfffffffc | 0x00000002
@@ -224,7 +224,7 @@ Once PLL is ready we can select it as SYSCLK source, which is done by setting `R
 
 When PLL is selected as clock source `R32_RCC_CFGR0` field `SWS` (bits 2-3) will be set to 2 (the same value we set field `SW` to in the previous step). We could write a loop that iterates until `SWS` is set to 2:
 
-```riscv
+```asm
         # wait until PLL is used as SYSCLK
         li t1, 0x0000000c # RCC_CFGR0 SWS mask
         li t2, 0x00000008 # RCC_CFGR0 SW PLL
@@ -241,7 +241,7 @@ Before we can set a pin high or low we have to enable the corresponding GPIO por
 
 Enabling the GPIO port is done through `R32_RCC_APB2PCENR` field `IOPDEN` (bit 5) which enables (when set to 1) disables (when set to 0) GPIO port D clock:
 
-```riscv
+```asm
         # setup GPIO pin for led
         # enable GPIO port D clock
         # RCC_AP2PCENR = RCC_AP2PCENR | 1 << 5
@@ -263,7 +263,7 @@ More specifically, the `R32_GPIOX_CFGLR` (Configuration Low Register) is used to
 
 So, if we want to configure pin 4 we have to write to fields `MODE4` (bits 16-17) and `CNF4` (bits 18-19). To control the LED we want to set `MODE4` to 1, which indicates output at 10MHz maximum speed, and `CNF4` to 0, which indicates push-pull output mode. Because we don't want to overwrite the rest of pin configurations we could first perform a bitwise AND with a mask to clear the previous configuration and then bitwise OR the result with the new configuration:
 
-```riscv
+```asm
         # clear current pin config with an and mask (shift count determined by pin number * pin conf bit count -> pin*4)
         # GPIOD_CFGLR = GPIOD_CFGLR & ~(0xf << (4*pin)) | ((0|1) << (4*pin))
         lw t0, 0(a2)
@@ -318,7 +318,7 @@ Given this set of registers, implementing a system tick delay function is reason
 
 Let's write a function waits until the number of ticks (HCLK/8) in register `a0` have been reached:
 
-```riscv
+```asm
 delay_systick:
         # function prologue
         addi sp, sp, -16
@@ -401,7 +401,7 @@ $$
 
 Finally, we can write an infinite loop to blink the LED:
 
-```riscv
+```asm
         li t2, 1 << led_pin # pin mask
 .L_loop:
         sw t2, 20(a2) # GPIO_BCR = (1 << led_pin)
