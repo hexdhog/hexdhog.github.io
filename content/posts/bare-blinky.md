@@ -380,7 +380,35 @@ delay_systick:
 ```
 
 ---
-## Blinky
+## Making the LED blink
+
+Now all that remains is to actually make the LED blink by setting GPIO D4 high and low in between `delay_systick` calls. There are two registers we can use to set any given GPIO pin high or low.
+
+`R32_GPIOX_BCR` is only used to reset (set to low state) any pin in the GPIO port by writing a 1 to the corresponding field:
+
+![CH32V003 GPIO BCR](/img/ch32v003-gpio-bcr.png)
+
+`R32_GPIOX_BSHR` is used for both setting (set to high state) and resetting (set to low state) any given pin in the GPIO port. Works identically to `R32_GPIOX_BCR` but the set fields are on the lower 16 bits and the reset fields are on the higher 16 bits. This register is useful for setting and resetting different pins at the same time and in scenarios where immediate execution of the next instruction is not guaranteed (when interrupts are enabled or on multicore CPUs) because it can be done in a single *atomic* operation.
+
+![CH32V003 GPIO BSHR](/img/ch32v003-gpio-bshr.png)
+
+Because we want to have the LED on and off for a certain amount of time we have to convert that amount to number of system ticks in order to use the `delay_systick` function. For a 48MHz system clock source we could calculate the milisecond to tick factor the following way:
+
+48000000cycle/s * 1tick/8cycle * 1s/1000ms = 6000 ticks/ms
+
+Finally, we can write an infinite loop to blink the LED:
+
+```riscv
+        li t2, 1 << led_pin # pin mask
+.L_loop:
+        sw t2, 20(a2) # GPIO_BCR = (1 << led_pin)
+        li a0, 100*ms_to_tick # keep led on for 100ms
+        call delay_systick
+
+        sw t2, 16(a2) # GPIO_BSHR = (1 << led_pin)
+        li a0, 1000*ms_to_tick # keep led off for 1000ms
+        call delay_systick
+```
 
 ---
 ## Startup code & linker script
