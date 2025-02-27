@@ -411,7 +411,11 @@ Finally, we can write an infinite loop to blink the LED:
         sw t2, 16(a2) # GPIO_BSHR = (1 << led_pin)
         li a0, 1000*ms_to_tick # keep led off for 1000ms
         call delay_systick
+
+        j .L_loop
 ```
 
 ---
 ## Startup code & linker script
+
+Now we have the complete blinky program but if we compile it and upload the object file directly to the microcontroller it won't work. We have to link the object file so that
