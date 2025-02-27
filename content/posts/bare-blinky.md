@@ -1,7 +1,7 @@
 ---
 title: "Bare blinky"
 date: 2025-01-19
-draft: true
+# draft: true
 showToc: true
 math: katex
 ---
@@ -414,8 +414,3 @@ Finally, we can write an infinite loop to blink the LED:
 
         j .L_loop
 ```
-
----
-## Startup code & linker script
-
-Now we have the complete blinky program but if we compile it and upload the object file directly to the microcontroller it won't work. We have to link the object file so that
