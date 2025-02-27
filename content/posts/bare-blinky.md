@@ -414,3 +414,142 @@ Finally, we can write an infinite loop to blink the LED:
 
         j .L_loop
 ```
+
+<!-- --- -->
+<!-- ## Startup code & linker script -->
+<!---->
+<!---->
+<!-- STARTUPPPPP!!! -->
+<!---->
+<!-- ```asm -->
+<!-- .section .init -->
+<!-- .globl start -->
+<!-- start: -->
+<!--         # there isn't really a need for setting up gp and sp since they are not used in this program -->
+<!-- .option push -->
+<!-- .option norelax -->
+<!--         la gp, __global_pointer$ -->
+<!-- .option pop -->
+<!--         la sp, __stack_end -->
+<!---->
+<!--         # set CSR register MSTATUS (Machine Status) -->
+<!--         #     bit 7: MPIE (Machine Previous Interrupt Enable) to 1, which will enable interrupts when mret is executed -->
+<!--         #     bit 3: MIE (Machine Interrupt Enable) to 0, which disables interrupts -->
+<!--         li t0, 0x80 -->
+<!--         csrw mstatus, t0 -->
+<!---->
+<!--         # set CSR register INTSYSCR (Interrupt System Control Register) located at CSR address 0x804 -->
+<!--         #     bit 1: interrupt nesting table enable to 1 -->
+<!--         #     bit 0: hardware stack enable to 1 -->
+<!--         li t0, 0x3 -->
+<!--         csrw 0x804, t0 -->
+<!---->
+<!--         # set CSR register MTVEC (Exception Entry Base Address Register) -->
+<!--         #     bits [31:2]: interrupt vector table base address (aligned to 4 bytes; last two bits are hardwired to 0) -->
+<!--         #     bit 1: indentify pattern -> 1 : by absolute address -->
+<!--         #     bit 0: entry address -> 1 : address offset based on interrupt number*4 -->
+<!--         la t0, isr_vector -->
+<!--         ori t0, t0, 3 -->
+<!--         csrw mtvec, t0 -->
+<!---->
+<!--         # set CSR register MEPC (Machine Exception Program Counter); return address of an exception handler -->
+<!--         la t0, main -->
+<!--         csrw mepc, t0 -->
+<!--         mret -->
+<!--         # mret -> Machine Return (return from exception handler) -->
+<!--         #     1. restore MIE from MPIE -->
+<!--         #     2. set MPIE to 1 -->
+<!--         #     3. jump to address stored in MEPC CSR register -->
+<!-- ``` -->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!-- Now we have the complete blinky program but, even though the we can compile the assembly code, we can't upload the raw object file because the microcontroller will not know how to interpret it. We have to create a linker script to specify to the linker how to structure the resulting binary. Here's a simplified version of the linker script found at the manufacturer's PlatformIO repository: -->
+<!---->
+<!-- ```ld -->
+<!-- ENTRY(start); -->
+<!---->
+<!-- PROVIDE(__stack_size = 256); -->
+<!---->
+<!-- MEMORY { -->
+<!-- 	FLASH (rx) : ORIGIN = 0x00000000, LENGTH = 16K -->
+<!-- 	RAM (rwx)  : ORIGIN = 0x20000000, LENGTH = 2K -->
+<!-- } -->
+<!---->
+<!-- SECTIONS { -->
+<!-- 	.init : { -->
+<!-- 		. = ALIGN(4); -->
+<!-- 		PROVIDE(__start = .); -->
+<!-- 		KEEP(*(SORT_NONE(.init))); -->
+<!-- 		. = ALIGN(4); -->
+<!-- 	} >FLASH AT>FLASH -->
+<!---->
+<!-- 	.text : { -->
+<!-- 		. = ALIGN(4); -->
+<!-- 		*(.text); -->
+<!-- 		*(.text.*); -->
+<!-- 		*(.rodata); -->
+<!-- 		*(.rodata.*); -->
+<!-- 		. = ALIGN(4); -->
+<!-- 	} >FLASH AT>FLASH -->
+<!---->
+<!-- 	.data : { -->
+<!-- 		. = ALIGN(4); -->
+<!-- 		*(.data .data.*) -->
+<!-- 		PROVIDE(__data_start = .); -->
+<!-- 		. = ALIGN(8); -->
+<!-- 		/* since gp is used to access globals within +/-2KB and total RAM size is 2KB -->
+<!-- 		 * we can just set it to the base of the .data section */ -->
+<!-- 		PROVIDE(__global_pointer$ = .); -->
+<!-- 		. = ALIGN(8); -->
+<!-- 		PROVIDE(__data_end = .); -->
+<!-- 	} >RAM AT>FLASH -->
+<!---->
+<!-- 	.stack ORIGIN(RAM) + LENGTH(RAM) - __stack_size : { -->
+<!-- 		PROVIDE(__heap_end = .); -->
+<!-- 		. = ALIGN(8); -->
+<!-- 		PROVIDE(__stack_start = .); -->
+<!-- 		. = . + __stack_size; -->
+<!-- 		PROVIDE(__stack_end = .); -->
+<!-- 	} >RAM -->
+<!-- } -->
+<!-- ``` -->
+<!---->
+<!-- I won't go into too much detail here, but I would like to note a few important things. -->
+<!---->
+<!-- The symbol `start` will be the entry point (a.k.a the first instruction to be executed) of the microcontroller. Note how the symbol we defined in the previous section is `main`, which means we'll have to write some start-up code in `start` and then jump to `main`. -->
+<!---->
+<!-- Only the `.init` and `.text` sections will actually be used in our binary -->
+<!---->
+<!-- ``` -->
+<!-- $ toolchain-riscv/bin/riscv-none-embed-readelf -S .pio/build/ch32v003f4p6_evt_r0/firmware.elf -->
+<!-- There are 8 section headers, starting at offset 0x140c: -->
+<!---->
+<!-- Section Headers: -->
+<!--   [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al -->
+<!--   [ 0]                   NULL            00000000 000000 000000 00      0   0  0 -->
+<!--   [ 1] .init             PROGBITS        00000000 001000 000040 00  AX  0   0  1 -->
+<!--   [ 2] .text             PROGBITS        00000040 001040 00018c 00  AX  0   0  4 -->
+<!--   [ 3] .data             PROGBITS        20000000 0011cc 000000 00  WA  0   0  1 -->
+<!--   [ 4] .stack            NOBITS          20000700 001700 000100 00  WA  0   0  1 -->
+<!--   [ 5] .symtab           SYMTAB          00000000 0011cc 000140 10      6  15  4 -->
+<!--   [ 6] .strtab           STRTAB          00000000 00130c 0000c9 00      0   0  1 -->
+<!--   [ 7] .shstrtab         STRTAB          00000000 0013d5 000034 00      0   0  1 -->
+<!--   Key to Flags: -->
+<!--   W (write), A (alloc), X (execute), M (merge), S (strings), I (info), -->
+<!--   L (link order), O (extra OS processing required), G (group), T (TLS), -->
+<!--   C (compressed), x (unknown), o (OS specific), E (exclude), -->
+<!--   p (processor specific) -->
+<!-- ``` -->
