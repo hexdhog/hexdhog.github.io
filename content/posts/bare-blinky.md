@@ -1,6 +1,6 @@
 ---
 title: "Bare blinky"
-date: 2025-01-19
+date: 2025-02-27
 # draft: true
 showToc: true
 math: katex
