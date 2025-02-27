@@ -1,4 +1,4 @@
 baseURL = "https://hexdhog.com/"
 languageCode = "en-us"
-title = "hexdhog's blog"
+title = "hexdhog"
 theme = "papermod"

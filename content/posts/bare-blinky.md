@@ -7,6 +7,7 @@ showToc: true
 
 I have messed with electronics for quite some time now, pretty much ever since I started programming. Actually, I learned basic C programming by playing in Arduino IDE. So I have a decent understanding of how to write basic programs that run on Arduino-like compatible microcontrollers; but I have a mediocre understanding of what is actually going on when I use the Arduino or, even, the chip's framework. So I want to go down the software stack and understand exactly what really happens under the hood. I think making an LED blink, an extremely basic task, in assembly and without any libraries/frameworks is a decent starting point.
 
+---
 ## Setup
 
 I bought a [CH32V003 kit](https://es.aliexpress.com/item/1005005834050641.html) a while back with this goal in mind.
@@ -15,6 +16,7 @@ It's a microcontroller based on QuingKe RISC-V2A with 2KB SRAM, 16KB FLASH, PFIC
 
 I am using PlatformIO to manage the project, although that isn't really relevant to this post.
 
+---
 ## Plan
 
 The CH32V003 kit's PCB has an LED connected to GPIO D4 which emits light when that pin is low. So we need a way to manipulate the GPIO pin. Then we need a way to time the actions perfomed on the GPIO pin, so that the LED actually blinks and it does so at a constant rate.
@@ -33,6 +35,7 @@ Note that FLASH and SRAM are also peripherals and, while they are connected on d
 
 According to the memory map diagram, the GPIO port D registers are located between addresses `0x40011400` and `0x40011800`, and, though not specified, the system tick timer's registers are located in the Core Private Peripherals section (`0xe000000` to `0xe0100000`).
 
+---
 ## System clock setup
 
 Before setting anything else up we should initialize the system clock. After reset, the CH32V003 uses the HSI (High Speed Internal) oscillator at 24MHz as a clock source. The [PLL (Phase Locked Loop)](https://en.wikipedia.org/wiki/Phase-locked_loop), used to multiply the input clock source, is disabled. An HSE (High Speed Extenal) oscillator 4-25MHz can also be used as a clock source which is disabled after reset; up to de user to set it up on every startup.
@@ -204,7 +207,7 @@ When PLL is ready `RCC_CTLR` field `PLLRDY` (bit 25) will be set to 1. So we cou
 
 ### Select PLL as SYSCLK
 
-Once PLL is ready we can select it as SYSCLK source, which is done by setting `R32_RCC_CFGR0` field `SW` (bits 0-1) to 2. Because we don't want to modify the rest of the fields we could read the register value, set the first two bits to 0 with a bitwise and mask (which would be `0b11 << 0 = 0x00000003`) and then bitwise or the result with 2:
+Once PLL is ready we can select it as SYSCLK source, which is done by setting `R32_RCC_CFGR0` field `SW` (bits 0-1) to 2. Because we don't want to modify the rest of the fields we could read the register value, set the first two bits to 0 with a bitwise AND mask (which would be `0b11 << 0 = 0x00000003`) and then bitwise OR the result with 2:
 
 ```riscv
         # RCC_CFGR0 = RCC_CFGR0 & ~(0b11) | 0b10
@@ -230,11 +233,12 @@ When PLL is selected as clock source `R32_RCC_CFGR0` field `SWS` (bits 2-3) will
         bne t0, t2, .L_pll_use_wait
 ```
 
+---
 ## GPIO port setup
 
 Before we can set a pin high or low we have to enable the corresponding GPIO port and configure the individual pin as output.
 
-Enabling the GPIO port is done through `R32_RCC_APB2PCENR` field `IOPDEN` (bit 5) which enables (when set to 1) disables (when set to 0) GPIO port D clock.
+Enabling the GPIO port is done through `R32_RCC_APB2PCENR` field `IOPDEN` (bit 5) which enables (when set to 1) disables (when set to 0) GPIO port D clock:
 
 ```riscv
         # setup GPIO pin for led
@@ -256,7 +260,7 @@ More specifically, the `R32_GPIOX_CFGLR` (Configuration Low Register) is used to
 
 ![CH32V003 GPIO CFGLR](/img/ch32v003-gpio-cfglr.png)
 
-So, if we want to configure pin 4 we have to write to fields `MODE4` (bits 16-17) and `CNF4` (bits 18-19). To control the LED we want to set `MODE4` to 1, which indicates output at 10MHz maximum speed, and `CNF4` to 0, which indicates push-pull output mode. Because we don't want to overwrite the rest of pin configurations we could first perform a bitwise and with a mask and then bitwise or the result with the new configuration:
+So, if we want to configure pin 4 we have to write to fields `MODE4` (bits 16-17) and `CNF4` (bits 18-19). To control the LED we want to set `MODE4` to 1, which indicates output at 10MHz maximum speed, and `CNF4` to 0, which indicates push-pull output mode. Because we don't want to overwrite the rest of pin configurations we could first perform a bitwise AND with a mask to clear the previous configuration and then bitwise OR the result with the new configuration:
 
 ```riscv
         # clear current pin config with an and mask (shift count determined by pin number * pin conf bit count -> pin*4)
@@ -270,6 +274,113 @@ So, if we want to configure pin 4 we have to write to fields `MODE4` (bits 16-17
         sw t0, 0(a2)
 ```
 
+---
 ## System tick counter as timer
 
+The system counter is a device that increments a register value on every clock cycle. It has a special register that allows us to set a comparison value so that when the counter value exceeds the comparison value a flag is set. We can use this to time actions in terms of clock cycles. These are its registers:
+
+![CH32V003 STK registers](/img/ch32v003-stk-registers.png)
+
+`R32_STK_CTLR` is used to control the system counter:
+
+![CH32V003 STK CTLR](/img/ch32v003-stk-ctlr.png)
+
+The fields `SWIE` (software interrupt trigger enable) and `STIE` (counter interrupt enable) are both used to enable/disabled interrupts. Because we won't be using interrupts we'll set them both to 0.
+
+Field `STRE` (System Tick auto-Reload Enable) is used to configure whether the counter resets to 0 after the comparison values has been reached or if it continues counting up to the maximum value. We don't really care about this as we'll stop the counter as soon as we detect the comparison value has been reached.
+
+Field `STCLK` (system tick clock source) is used to select the counter clock source: HCLK (when set to 1) or HCLK/8 (when set to 0). It doesn't really matter which setting we use as long as we take it into consideration when calculating the amount of ticks to set the counter to. We'll use HCLK/8 as clock source as it allows for longer time delays.
+
+Field `STE` (system tick enable) is used to turn on the counter (when set to 1) or turn it off (when set to 0).
+
+`R32_STK_SR` has a single 1-bit field, `CNTIF`, which is set to 1 when the counter reaches the comparison value:
+
+![CH32V003 STK CTLR](/img/ch32v003-stk-sr.png)
+
+`R32_STK_CNTL` has a single 32-bit field, `CNT`, which holds the current counter value:
+
+![CH32V003 STK CTLR](/img/ch32v003-stk-cntl.png)
+
+`R32_STK_CMPLR` has a single 32-bit field, `CMP`, which holds the comparison value:
+
+![CH32V003 STK CTLR](/img/ch32v003-stk-cmplr.png)
+
+Given this set of registers, implementing a system tick delay function is reasonably simple:
+
+1. Turn system tick counter off and set clock source as HCLK/8
+2. Clear the comparison flag
+3. Set initial counter value
+4. Set comparison counter value
+5. Turn system tick counter on
+6. Wait until the comparison flag is set
+7. Turn system tick counter off
+
+Let's write a function waits until the number of ticks (HCLK/8) in register `a0` have been reached:
+
+```riscv
+delay_systick:
+        # function prologue
+        addi sp, sp, -16
+        sw ra, 12(sp)
+        sw s0, 8(sp)
+        sw s1, 4(sp)
+
+        li s1, systck_base # s1 -> system tick register base address
+
+        # stop system counter (set STE [bit 0] to 0) and select HCLK/8 as clock source (set STCLK [bit 2] to 0)
+        # STK_CTLR = STK_CTLR & ~((1<<0) | (1<<2))
+        # STK_CTLR = STK_CTLR & ~(0x00000005)
+        # STK_CTLR = STK_CTLR & ~(0x00000005)
+        # STK_CTLR = STK_CTLR & 0xfffffffa
+        lw s0, 0(s1)
+        and s0, s0, 0xfffffffa
+        sw s0, 0(s1)
+
+        # clear count value comparison flag (set CNTIF [bit 0] to 0)
+        # STK_SR = STK_SR & ~(1<<0)
+        # STK_SR = STK_SR & 0xfffffffe
+        li s0, 0xfffffffe # s0 = ~(1)
+        sw s0, 4(s1)
+
+        # set initial counter value
+        # STK_CNTL = 0
+        sw zero, 8(s1)
+        
+        # set count end value
+        # STK_CMPLR = a0
+        sw a0, 16(s1)
+
+        # start system counter (set STE [bit 0] to 1)
+        # STK_CTLR = STK_CTLR | (1<<0)
+        # STK_CTLR = STK_CTLR | 0x00000001
+        lw s0, 0(s1)
+        or s0, s0, 0x00000001
+        sw s0, 0(s1)
+
+        # wait until count system counter has reached target number
+.L_wait:
+        lw s0, 4(s1) # s0 = STK_SR
+        and s0, s0, 0x00000001 # s0 = STK_SR & 0x00000001
+        beq s0, zero, .L_wait # if s0 != 0 -> bit 0 is set -> count has been reached
+
+        # stop system counter (set STE [bit 0] to 0)
+        # STK_CTLR = STK_CTLR & ~(1<<0)
+        # STK_CTLR = STK_CTLR & 0xfffffffe
+        lw s0, 0(s1)
+        and s0, s0, 0xfffffffe
+        sw s0, 0(s1)
+
+        # function epilogue
+        lw s1, 4(sp)
+        lw s0, 8(sp)
+        lw ra, 12(sp)
+        addi sp, sp, 16
+
+        ret
+```
+
+---
 ## Blinky
+
+---
+## Startup code & linker script
