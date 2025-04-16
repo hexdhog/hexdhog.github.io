@@ -5,6 +5,7 @@ theme = "archie"
 
 [params]
 mode="dark"
+katex = true
 
 [markup]
 [markup.highlight]
