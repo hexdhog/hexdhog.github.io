@@ -1,7 +1,10 @@
 baseURL = "https://hexdhog.com/"
 languageCode = "en-us"
 title = "hexdhog"
-theme = "papermod"
+theme = "archie"
+
+[params]
+mode="dark"
 
 [markup]
 [markup.highlight]
@@ -11,3 +14,13 @@ style = "base16-snazzy"
 # style = "monokai"
 # style = "onedark"
 # style = "paraiso-dark"
+
+[[params.social]]
+name = "GitHub"
+icon = "github"
+url = "https://github.com/hexdhog/"
+
+[[params.social]]
+name = "X"
+icon = "twitter"
+url = "https://twitter.com/hexdhog/"
