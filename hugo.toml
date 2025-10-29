@@ -3,9 +3,13 @@ languageCode = "en-us"
 title = "hexdhog"
 theme = "archie"
 
+copyright = "© hexdhog"
 [params]
-mode="dark"
+mode = "dark"
 katex = true
+[params.author]
+email = "hexdhog@pm.me"
+name = "hexdhog"
 
 [markup]
 [markup.highlight]
@@ -25,3 +29,10 @@ url = "https://github.com/hexdhog/"
 name = "X"
 icon = "twitter"
 url = "https://twitter.com/hexdhog/"
+
+[services]
+[services.rss]
+limit = -1
+
+[outputs]
+home = ["html", "rss"]
