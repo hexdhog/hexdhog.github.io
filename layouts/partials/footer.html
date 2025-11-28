@@ -11,8 +11,8 @@
     {{- end -}}
   </div>
   <div class="footer-info">
-    {{ dateFormat "2006" now }} {{ with .Site.Copyright }} {{ . }} | {{ end }}
     Built with <a href="https://gohugo.io">Hugo</a> : <a href="https://github.com/athul/archie">Archie Theme</a>
+    | {{ dateFormat "2006" now }} {{ with .Site.Copyright }} {{ . }} {{ end }}
   </div>
 </footer>
 {{ if not hugo.IsServer }}

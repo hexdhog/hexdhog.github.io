@@ -1,15 +1,15 @@
-baseURL = "https://hexdhog.com/"
+baseURL = "https://blog.serafi.dev/"
 languageCode = "en-us"
-title = "hexdhog"
+title = "serafi"
 theme = "archie"
 
-copyright = "© hexdhog"
+copyright = "© Serafi Nebot"
 [params]
 mode = "dark"
 katex = true
 [params.author]
-email = "hexdhog@pm.me"
-name = "hexdhog"
+email = "hexdhog@proton.me"
+name = "Serafi Nebot"
 
 [markup]
 [markup.highlight]
@@ -28,7 +28,7 @@ url = "https://github.com/hexdhog/"
 [[params.social]]
 name = "X"
 icon = "twitter"
-url = "https://twitter.com/hexdhog/"
+url = "https://twitter.com/serafinebot/"
 
 [services]
 [services.rss]

@@ -1,3 +1,3 @@
-# hexdhog.com
+# blog.serafi.dev
 
-source code for [hexdhog.com](https://hexdhog.com)
+source code for [blog.serafi.dev](https://blog.serafi.dev)
