@@ -1,38 +1,46 @@
 baseURL = "https://blog.serafi.dev/"
 languageCode = "en-us"
-title = "serafi's blog"
+title = "serafí's blog"
 theme = "archie"
 
-copyright = "© Serafi Nebot"
+copyright = "© Serafí Nebot"
 [params]
-mode = "toggle"
-katex = true
+    mode = "toggle"
+    katex = true
+    chromaLight = "github"
+    chromaDark  = "dracula"
+
 [params.author]
-email = "hexdhog@proton.me"
-name = "Serafi Nebot"
+    email = "hexdhog@proton.me"
+    name = "Serafí Nebot"
 
 [markup]
-[markup.highlight]
-codeFences = true
-style = "base16-snazzy"
-# style = "gruvbox"
-# style = "monokai"
-# style = "onedark"
-# style = "paraiso-dark"
+    [markup.highlight]
+        codeFences = true
+        guessSyntax = true
+        lineNos = false  # Optional: Set to true if you want line numbers
+        noClasses = false  # Crucial: Enables classes for CSS styling
+        style = "github"  # Default fallback; will be overridden by our custom CSS
+        tabWidth = 4
+        # style = "base16-snazzy"
+        # style = "gruvbox"
+        # style = "monokai"
+        # style = "onedark"
+        # style = "paraiso-dark"
 
 [[params.social]]
-name = "GitHub"
-icon = "github"
-url = "https://github.com/hexdhog/"
+    name = "GitHub"
+    icon = "github"
+    url = "https://github.com/hexdhog/"
 
 [[params.social]]
-name = "X"
-icon = "twitter"
-url = "https://x.com/serafinebot/"
+    name = "X"
+    icon = "twitter"
+    url = "https://x.com/serafinebot/"
 
 [services]
-[services.rss]
-limit = -1
+    [services.rss]
+        limit = -1
 
 [outputs]
-home = ["html", "rss"]
+    home = ["html", "rss"]
