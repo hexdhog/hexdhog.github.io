@@ -8,7 +8,7 @@ copyright = "© Serafí Nebot"
     mode = "toggle"
     katex = true
     chromaLight = "github"
-    chromaDark  = "dracula"
+    chromaDark  = "github-dark"
 
 [params.author]
     email = "hexdhog@proton.me"
@@ -18,10 +18,17 @@ copyright = "© Serafí Nebot"
     [markup.highlight]
         codeFences = true
         guessSyntax = true
-        lineNos = false  # Optional: Set to true if you want line numbers
-        noClasses = false  # Crucial: Enables classes for CSS styling
-        style = "github"  # Default fallback; will be overridden by our custom CSS
+        lineNos = false
         tabWidth = 4
+
+        # TODO: fix highlight colorscheme change on theme toggle
+        # noClasses = false
+        style = "github-dark"
+        # style = "github"
+
+        # style = "dracula"
+        # style = "doom-one2"
+        # style = "doom-one"
         # style = "base16-snazzy"
         # style = "gruvbox"
         # style = "monokai"
