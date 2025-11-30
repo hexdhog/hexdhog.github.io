@@ -1,6 +1,6 @@
 baseURL = "https://blog.serafi.dev/"
 languageCode = "en-us"
-title = "serafi"
+title = "serafi's blog"
 theme = "archie"
 
 copyright = "© Serafi Nebot"
@@ -28,7 +28,7 @@ url = "https://github.com/hexdhog/"
 [[params.social]]
 name = "X"
 icon = "twitter"
-url = "https://twitter.com/serafinebot/"
+url = "https://x.com/serafinebot/"
 
 [services]
 [services.rss]
