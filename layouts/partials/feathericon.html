@@ -1,7 +1,0 @@
-{{- $icon := .Icon -}}
-{{- $useCDN := .UseCDN | default false -}}
-{{ if $useCDN }}
-<img src="https://unpkg.com/feather-icons/dist/icons/{{ $icon }}.svg" alt="{{ $icon }}" />
-{{ else }}
-{{ $icon | printf "<i data-feather=\"%s\"></i>" | safeHTML }}
-{{ end }}

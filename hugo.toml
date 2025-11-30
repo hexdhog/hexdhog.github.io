@@ -5,7 +5,7 @@ theme = "archie"
 
 copyright = "© Serafi Nebot"
 [params]
-mode = "dark"
+mode = "toggle"
 katex = true
 [params.author]
 email = "hexdhog@proton.me"
